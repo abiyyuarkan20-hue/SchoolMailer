@@ -46,5 +46,11 @@ apps/backend/storage/temp/
 # === Prisma ===
 apps/backend/prisma/migrations/
 
+# === Generated / Storage ===
+apps/public/downloads/
+apps/public/uploads/
+apps/backend/storage/
+apps/backend/public/downloads/
+
 # === Misc ===
 *.tsbuildinfo
