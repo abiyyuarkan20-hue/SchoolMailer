@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-slate-800 antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* TipTap Table Styles */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  min-width: 1em;
+  border: 1px solid #cbd5e1;
+  padding: 2px 6px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+.ProseMirror table td p,
+.ProseMirror table th p {
+  margin: 0;
+}
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #3b82f6;
+  pointer-events: none;
+  z-index: 20;
+}
+.ProseMirror.resize-cursor {
+  cursor: ew-resize;
+  cursor: col-resize;
+}
+
+/* Row Resize Handle */
+.ProseMirror .row-resize-handle {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-top: -3px;
+  margin-bottom: -3px;
+  background-color: transparent;
+  cursor: row-resize;
+  z-index: 20;
+  transition: background-color 0.15s ease;
+}
+
+/* Kop Surat Live Preview Reset */
+.kop-surat-preview p {
+  margin: 0 !important;
+}
+
+/* NoSpacing: collapse all spacing for paragraphs with noSpacing marker */
+.ProseMirror p[data-no-spacing],
+p.no-spacing {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.ProseMirror .row-resize-handle:hover {
+  background-color: #3b82f6;
+}
+
+/* Table Borderless Mode */
+.ProseMirror table[data-borderless="true"] td,
+.ProseMirror table[data-borderless="true"] th {
+  border: none !important;
+}
+
+/* Table Positioning */
+.ProseMirror table[data-table-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+  width: auto;
+}
+.ProseMirror table[data-table-align="right"] {
+  margin-left: auto;
+  margin-right: 0;
+  width: auto;
+}
+
+/* ProseMirror positioning context for drag handles */
+.ProseMirror {
+  position: relative;
+}
+
+/* Table Drag Handle */
+.ProseMirror .table-drag-handle {
+  display: block;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  cursor: grab;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 30;
+}
+.ProseMirror .table-drag-handle-visible {
+  opacity: 1;
+}
+.ProseMirror .table-drag-handle::before {
+  content: '⠿';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  position: relative;
+  left: -28px;
+  top: 6px;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+.ProseMirror .table-drag-handle-visible::before {
+  color: #3b82f6;
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+/* Table Selection Indicator */
+.ProseMirror table {
+  position: relative;
+}
+.ProseMirror table.ProseMirror-selectednode {
+  outline: 2px dashed #3b82f6;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Sidebar bounce active animation */
+@keyframes bounceActive {
+  0% {
+    height: 0;
+    opacity: 0;
+  }
+  60% {
+    height: 10px;
+    opacity: 1;
+  }
+  100% {
+    height: 28px;
+    opacity: 1;
+  }
+}
+
+/* Force pure black text in RichTextEditor (override Tailwind prose gray) */
+.rich-text-editor-container .ProseMirror {
+  --tw-prose-body: #000 !important;
+  --tw-prose-bold: #000 !important;
+  color: #000 !important;
+}
