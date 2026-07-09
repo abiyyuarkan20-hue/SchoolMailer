@@ -7,6 +7,7 @@ const studentSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE']).optional().default('MALE'),
   parentName: z.string().optional().nullable(),
   parentPhone: z.string().optional().nullable(),
+  email: z.string().email('Format email tidak valid').optional().nullable().or(z.literal('')),
   address: z.string().optional().nullable(),
   extraData: z.record(z.any()).optional().nullable(),
 });
