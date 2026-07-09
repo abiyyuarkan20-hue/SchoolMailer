@@ -53,9 +53,9 @@ const validateCustomData = (customData) => {
       }
       
       // Boolean and date string are allowed as-is
-      // Date should be in ISO 8601 format, but we don't enforce strict validation
-      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
-        errors.push(`Tipe data untuk key '${key}' tidak didukung. Gunakan string, number, atau boolean`);
+      // Array is allowed for dynamic tables (like ranking)
+      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && !Array.isArray(value)) {
+        errors.push(`Tipe data untuk key '${key}' tidak didukung. Gunakan string, number, boolean, atau array`);
       }
     }
   }

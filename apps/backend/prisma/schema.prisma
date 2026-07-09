@@ -64,6 +64,7 @@ model Student {
 model Teacher {
   id          String   @id @default(cuid())
   nip         String   @unique
+  nik         String?
   name        String
   position    String   @map("position")
   pangkat     String?
@@ -75,6 +76,8 @@ model Teacher {
   nuptk       String?
   status      String?
   education   String?
+  unitKerja   String?  @map("unit_kerja")
+  instansi    String?
   birthPlace  String?  @map("birth_place")
   birthDate   DateTime? @map("birth_date")
   extraData   Json?    @map("extra_data")

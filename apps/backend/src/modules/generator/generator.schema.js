@@ -6,6 +6,7 @@ const generateSchema = z.object({
   outputType: z.enum(['PDF_SINGLE', 'ZIP_BUNDLE']),
   filterClass: z.string().optional().nullable(),
   customData: z.record(z.any()).optional(),
+  studentCustomData: z.record(z.record(z.any())).optional(),
   teacherId: z.string().cuid().optional().nullable(),
 });
 

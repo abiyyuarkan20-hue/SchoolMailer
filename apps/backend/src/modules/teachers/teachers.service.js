@@ -132,11 +132,12 @@ const processCsv = (buffer) => {
 
 const normalizeKeys = (row) => {
   const standardCleanKeys = [
-    'nip', 'name', 'nama', 'position', 'jabatan', 'pangkat',
+    'nip', 'nik', 'name', 'nama', 'position', 'jabatan', 'pangkat',
     'subject', 'mapel', 'mata_pelajaran', 'gender', 'jeniskelamin', 'jk',
     'phone', 'telp', 'no_hp', 'telepon', 'email',
     'address', 'alamat', 'nuptk', 'status', 'education', 'pendidikan',
     'birth_place', 'tempat_lahir', 'birth_date', 'tanggal_lahir',
+    'unit_kerja', 'unitkerja', 'instansi',
   ];
 
   const normalized = {};
@@ -171,6 +172,7 @@ const normalizeKeys = (row) => {
 
   return {
     nip: String(normalized['nip'] || '').trim(),
+    nik: normalized['nik'] ? String(normalized['nik']).trim() : null,
     name: String(normalized['name'] || normalized['nama'] || '').trim(),
     position: String(normalized['position'] || normalized['jabatan'] || '').trim(),
     pangkat: normalized['pangkat'] ? String(normalized['pangkat']).trim() : null,
@@ -182,6 +184,8 @@ const normalizeKeys = (row) => {
     nuptk: normalized['nuptk'] || null,
     status: normalized['status'] || null,
     education: normalized['education'] || normalized['pendidikan'] || null,
+    unitKerja: normalized['unitkerja'] || normalized['unit_kerja'] || null,
+    instansi: normalized['instansi'] || null,
     birthPlace: normalized['birth_place'] || normalized['tempat_lahir'] || null,
     birthDate,
     extraData: Object.keys(extraData).length > 0 ? extraData : null,

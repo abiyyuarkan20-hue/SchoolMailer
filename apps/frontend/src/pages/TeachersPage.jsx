@@ -15,6 +15,7 @@ import * as xlsx from 'xlsx';
 
 const teacherSchema = z.object({
   nip: z.string().min(5, 'NIP minimal 5 karakter'),
+  nik: z.string().optional().nullable(),
   name: z.string().min(2, 'Nama minimal 2 karakter'),
   position: z.string().min(1, 'Jabatan wajib diisi'),
   pangkat: z.string().optional().nullable(),
@@ -26,6 +27,8 @@ const teacherSchema = z.object({
   nuptk: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
   education: z.string().optional().nullable(),
+  unitKerja: z.string().optional().nullable(),
+  instansi: z.string().optional().nullable(),
   birthPlace: z.string().optional().nullable(),
   birthDate: z.string().optional().nullable(),
   extraData: z.record(z.any()).optional().nullable(),
@@ -90,15 +93,16 @@ const TeachersPage = () => {
     setIsAddModalOpen(false);
     setEditId(null);
     reset({
-      nip: '', name: '', position: '', pangkat: '', subject: '', gender: 'MALE',
+      nip: '', nik: '', name: '', position: '', pangkat: '', subject: '', gender: 'MALE',
       phone: '', email: '', address: '', nuptk: '', status: '', education: '',
-      birthPlace: '', birthDate: '', extraData: {},
+      unitKerja: '', instansi: '', birthPlace: '', birthDate: '', extraData: {},
     });
   };
 
   const openEditModal = (teacher) => {
     reset({
       nip: teacher.nip,
+      nik: teacher.nik || '',
       name: teacher.name,
       position: teacher.position,
       pangkat: teacher.pangkat || '',
@@ -110,6 +114,8 @@ const TeachersPage = () => {
       nuptk: teacher.nuptk || '',
       status: teacher.status || '',
       education: teacher.education || '',
+      unitKerja: teacher.unitKerja || '',
+      instansi: teacher.instansi || '',
       birthPlace: teacher.birthPlace || '',
       birthDate: teacher.birthDate ? new Date(teacher.birthDate).toISOString().split('T')[0] : '',
       extraData: teacher.extraData || {},
@@ -159,6 +165,7 @@ const TeachersPage = () => {
     const ws = xlsx.utils.json_to_sheet([
       {
         nip: '196912311994031234',
+        nik: '1234567890123456',
         name: 'Drs. H. Ahmad Fauzi, M.Pd.',
         position: 'Kepala Sekolah',
         pangkat: 'Pembina Tk. I, IV/b',
@@ -170,6 +177,8 @@ const TeachersPage = () => {
         nuptk: '1234567890123456',
         status: 'PNS',
         education: 'S2 Pendidikan',
+        unit_kerja: 'SMA Negeri 19 Medan',
+        instansi: 'Dinas Pendidikan Provinsi Sumatera Utara',
         birth_place: 'Medan',
         birth_date: '12 Agustus 1970',
       },
@@ -186,6 +195,11 @@ const TeachersPage = () => {
         header: 'Nama Guru',
         accessorKey: 'name',
         cell: ({ row }) => <span className="font-medium text-slate-800">{row.original.name}</span>,
+      },
+      {
+        header: 'NIK',
+        accessorKey: 'nik',
+        cell: ({ row }) => row.original.nik || <span className="text-slate-300">-</span>,
       },
       {
         header: 'L/P',
@@ -208,6 +222,16 @@ const TeachersPage = () => {
         header: 'Mapel',
         accessorKey: 'subject',
         cell: ({ row }) => row.original.subject || <span className="text-slate-300">-</span>,
+      },
+      {
+        header: 'Unit Kerja',
+        accessorKey: 'unitKerja',
+        cell: ({ row }) => row.original.unitKerja || <span className="text-slate-300">-</span>,
+      },
+      {
+        header: 'Instansi',
+        accessorKey: 'instansi',
+        cell: ({ row }) => row.original.instansi || <span className="text-slate-300">-</span>,
       },
       {
         header: 'No. HP',
@@ -309,88 +333,117 @@ const TeachersPage = () => {
         onPageChange={(newPage) => setPage(newPage)}
       />
 
-      <Modal isOpen={isAddModalOpen} onClose={closeFormModal} title={editId ? 'Edit Data Guru' : 'Tambah Guru Baru'}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="NIP *" id="nip" {...register('nip')} error={errors.nip?.message} />
-            <Input label="Nama Lengkap *" id="name" {...register('name')} error={errors.name?.message} />
-          </div>
+      {/* ── ADD / EDIT MODAL ── */}
+      <Modal isOpen={isAddModalOpen} onClose={closeFormModal} title={editId ? 'Edit Data Guru' : 'Tambah Guru Baru'} maxWidth="max-w-3xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[80vh]">
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-1 space-y-6 pb-4 custom-scrollbar">
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Jabatan *" id="position" {...register('position')} error={errors.position?.message} placeholder="Kepala Sekolah, Guru Mapel, ..." />
-            <Input label="Pangkat/Golongan" id="pangkat" {...register('pangkat')} placeholder="Pembina Tk. I, IV/b" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Mata Pelajaran" id="subject" {...register('subject')} placeholder="Matematika, Bahasa Indonesia, ..." />
+            {/* ── Section 1: Informasi Utama ── */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Jenis Kelamin *</label>
-              <select
-                {...register('gender')}
-                className={`w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border outline-none px-3 py-2 bg-white ${errors.gender ? 'border-danger' : 'border-slate-300'}`}
-              >
-                <option value="MALE">Laki-laki (L)</option>
-                <option value="FEMALE">Perempuan (P)</option>
-              </select>
-              {errors.gender && <p className="mt-1 text-sm text-danger">{errors.gender.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Status Kepegawaian</label>
-              <select
-                {...register('status')}
-                className="w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border border-slate-300 px-3 py-2 bg-white outline-none"
-              >
-                {STATUS_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <Input label="Pendidikan Terakhir" id="education" {...register('education')} placeholder="S1, S2, ..." />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="NUPTK" id="nuptk" {...register('nuptk')} placeholder="1234567890123456" />
-            <Input label="Tempat Lahir" id="birthPlace" {...register('birthPlace')} placeholder="Medan" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Tanggal Lahir" id="birthDate" type="date" {...register('birthDate')} />
-            <Input label="Email" id="email" type="email" {...register('email')} placeholder="guru@sma19medan.sch.id" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="No. HP" id="phone" {...register('phone')} placeholder="08123456789" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>
-            <textarea
-              {...register('address')}
-              className="w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border border-slate-300 px-3 py-2 outline-none"
-              rows={2}
-            />
-          </div>
-
-          {extraKeys.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-slate-200">
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Data Tambahan (Sesuai Excel)</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {extraKeys.map(key => (
-                  <Input
-                    key={key}
-                    label={key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                    id={`extraData.${key}`}
-                    {...register(`extraData.${key}`)}
-                  />
-                ))}
+              <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+                Informasi Utama
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <Input label="NIP *" id="nip" {...register('nip')} error={errors.nip?.message} />
+                <Input label="NIK" id="nik" {...register('nik')} placeholder="Nomor Induk Kependudukan" />
+                <Input label="Nama Lengkap *" id="name" {...register('name')} error={errors.name?.message} />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Jenis Kelamin *</label>
+                  <select
+                    {...register('gender')}
+                    className={`w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border outline-none px-3 py-2 bg-white ${errors.gender ? 'border-danger' : 'border-slate-300'}`}
+                  >
+                    <option value="MALE">Laki-laki (L)</option>
+                    <option value="FEMALE">Perempuan (P)</option>
+                  </select>
+                  {errors.gender && <p className="mt-1 text-sm text-danger">{errors.gender.message}</p>}
+                </div>
+                <Input label="Tempat Lahir" id="birthPlace" {...register('birthPlace')} placeholder="Medan" />
+                <Input label="Tanggal Lahir" id="birthDate" type="date" {...register('birthDate')} />
               </div>
             </div>
-          )}
 
-          <div className="pt-4 mt-2 flex justify-end gap-3 border-t border-slate-100">
+            <hr className="border-slate-200" />
+
+            {/* ── Section 2: Detail Pekerjaan ── */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span>
+                Detail Pekerjaan
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <Input label="Jabatan *" id="position" {...register('position')} error={errors.position?.message} placeholder="Kepala Sekolah, Guru Mapel, ..." />
+                <Input label="Pangkat/Golongan" id="pangkat" {...register('pangkat')} placeholder="Pembina Tk. I, IV/b" />
+                <Input label="Mata Pelajaran" id="subject" {...register('subject')} placeholder="Matematika, Bahasa Indonesia, ..." />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Status Kepegawaian</label>
+                  <select
+                    {...register('status')}
+                    className="w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border border-slate-300 px-3 py-2 bg-white outline-none"
+                  >
+                    {STATUS_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <Input label="NUPTK" id="nuptk" {...register('nuptk')} placeholder="1234567890123456" />
+                <Input label="Pendidikan Terakhir" id="education" {...register('education')} placeholder="S1, S2, ..." />
+                <Input label="Unit Kerja" id="unitKerja" {...register('unitKerja')} placeholder="SMA Negeri 19 Medan" />
+                <Input label="Instansi" id="instansi" {...register('instansi')} placeholder="Dinas Pendidikan Prov. Sumatera Utara" />
+              </div>
+            </div>
+
+            <hr className="border-slate-200" />
+
+            {/* ── Section 3: Kontak & Alamat ── */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                Kontak & Alamat
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <Input label="Email" id="email" type="email" {...register('email')} placeholder="guru@sma19medan.sch.id" />
+                <Input label="No. HP" id="phone" {...register('phone')} placeholder="08123456789" />
+              </div>
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>
+                <textarea
+                  {...register('address')}
+                  className="w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border border-slate-300 px-3 py-2 outline-none"
+                  rows={2}
+                  placeholder="Jl. Contoh No. 123, Medan"
+                />
+              </div>
+            </div>
+
+            {/* ── Section 4: Data Tambahan (Excel) ── */}
+            {extraKeys.length > 0 && (
+              <>
+                <hr className="border-slate-200" />
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+                    Data Tambahan (Sesuai Excel)
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                    {extraKeys.map(key => (
+                      <Input
+                        key={key}
+                        label={key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                        id={`extraData.${key}`}
+                        {...register(`extraData.${key}`)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Sticky footer */}
+          <div className="pt-4 mt-2 flex justify-end gap-3 border-t border-slate-200 bg-white sticky bottom-0">
             <Button variant="ghost" onClick={closeFormModal} disabled={isLoading}>Batal</Button>
             <Button type="submit" variant="primary" isLoading={isLoading}>Simpan</Button>
           </div>

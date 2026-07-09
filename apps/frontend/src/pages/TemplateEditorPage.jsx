@@ -7,10 +7,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { NodeSelection } from 'prosemirror-state';
-import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
+import { CustomTable, CustomTableCell, CustomTableHeader } from '../utils/tiptap-table-extensions';
 import TextAlign from '@tiptap/extension-text-align';
 import Image from '@tiptap/extension-image';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -38,7 +36,7 @@ const DRAFT_ID = 'unsaved-new';
 
 const STANDARD_RESERVED_VARS = [
   'nama_siswa','nisn','kelas','jenis_kelamin','nama_orang_tua','no_hp_ortu','alamat','email','tanggal_surat',
-  'nama_guru','nip','jabatan','pangkat','mapel','nuptk','status_pegawai','pendidikan','tempat_lahir','tanggal_lahir',
+  'nama_guru','nip','nik','jabatan','pangkat','mapel','nuptk','status_pegawai','pendidikan','unit_kerja','instansi','tempat_lahir','tanggal_lahir',
 ];
 
 const saveDraft = (data) => {
@@ -78,6 +76,176 @@ function useDebounce(value, delay) {
   }, [value, delay]);
   return debounced;
 }
+
+const TableDragHandle = ({ editor }) => {
+  const [handlePos, setHandlePos] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragInfo = useRef(null);
+  const rafRef = useRef(null);
+
+  const updateHandlePosition = useCallback(() => {
+    if (isDragging || !editor || !editor.view) return;
+
+    const { selection } = editor.state;
+    const { $from } = selection;
+    
+    let tablePos = null;
+    let tableNode = null;
+    
+    for (let i = $from.depth; i > 0; i--) {
+      if ($from.node(i).type.name === 'table') {
+        tableNode = $from.node(i);
+        tablePos = $from.before(i);
+        break;
+      }
+    }
+    
+    if (selection instanceof NodeSelection && selection.node.type.name === 'table') {
+      tableNode = selection.node;
+      tablePos = selection.from;
+    }
+
+    if (tablePos !== null) {
+      const domNode = editor.view.nodeDOM(tablePos);
+      if (domNode && domNode.nodeType === 1) { // Element node
+        const editorContainer = editor.view.dom.parentElement;
+        const domRect = domNode.getBoundingClientRect();
+        const editorRect = editorContainer.getBoundingClientRect();
+        
+        setHandlePos({
+          top: domRect.top - editorRect.top,
+          left: domRect.left - editorRect.left,
+          tablePos,
+          tableNode,
+          domNode
+        });
+        return;
+      }
+    }
+    
+    setHandlePos(null);
+  }, [editor, isDragging]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.on('selectionUpdate', updateHandlePosition);
+    editor.on('update', updateHandlePosition);
+    
+    return () => {
+      editor.off('selectionUpdate', updateHandlePosition);
+      editor.off('update', updateHandlePosition);
+    };
+  }, [editor, updateHandlePosition]);
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!handlePos) return;
+    
+    const currentLeft = handlePos.tableNode.attrs.left || 0;
+    const currentTop = handlePos.tableNode.attrs.top || 0;
+    
+    let initialLeft = currentLeft;
+    let initialTop = currentTop;
+
+    if (handlePos.tableNode.attrs.position !== 'absolute') {
+      initialLeft = handlePos.left;
+      initialTop = handlePos.top;
+      
+      editor.chain().command(({ tr }) => {
+        tr.setNodeMarkup(handlePos.tablePos, null, {
+          ...handlePos.tableNode.attrs,
+          position: 'absolute',
+          left: initialLeft,
+          top: initialTop
+        });
+        return true;
+      }).run();
+    }
+    
+    dragInfo.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialLeft,
+      initialTop,
+      tablePos: handlePos.tablePos,
+      tableNode: handlePos.tableNode,
+      domNode: handlePos.domNode
+    };
+    
+    setIsDragging(true);
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+  
+  const handleMouseMove = (e) => {
+    if (!dragInfo.current) return;
+    
+    const dx = e.clientX - dragInfo.current.startX;
+    const dy = e.clientY - dragInfo.current.startY;
+    
+    let newLeft = dragInfo.current.initialLeft + dx;
+    let newTop = dragInfo.current.initialTop + dy;
+    
+    if (newLeft < 0) newLeft = 0;
+    if (newTop < 0) newTop = 0;
+    
+    if (dragInfo.current.domNode) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        dragInfo.current.domNode.style.position = 'absolute';
+        dragInfo.current.domNode.style.left = `${newLeft}px`;
+        dragInfo.current.domNode.style.top = `${newTop}px`;
+        dragInfo.current.domNode.style.zIndex = '10';
+      });
+    }
+  };
+  
+  const handleMouseUp = (e) => {
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+    setIsDragging(false);
+    
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    
+    if (!dragInfo.current || !dragInfo.current.domNode) return;
+    
+    const finalLeft = parseInt(dragInfo.current.domNode.style.left) || dragInfo.current.initialLeft;
+    const finalTop = parseInt(dragInfo.current.domNode.style.top) || dragInfo.current.initialTop;
+    
+    editor.chain().command(({ tr }) => {
+      tr.setNodeMarkup(dragInfo.current.tablePos, null, {
+        ...dragInfo.current.tableNode.attrs,
+        position: 'absolute',
+        left: finalLeft,
+        top: finalTop
+      });
+      return true;
+    }).run();
+    
+    dragInfo.current = null;
+    setTimeout(updateHandlePosition, 50);
+  };
+
+  if (!handlePos && !isDragging) return null;
+
+  return (
+    <div 
+      className={`absolute z-20 flex items-center justify-center bg-blue-600 text-white rounded cursor-move shadow-md transition-transform ${isDragging ? 'scale-110 opacity-0 pointer-events-none' : 'hover:scale-110 hover:bg-blue-700'}`}
+      style={{
+        left: (handlePos?.left || 0) - 14,
+        top: (handlePos?.top || 0) - 14,
+        width: 28,
+        height: 28,
+      }}
+      onMouseDown={handleMouseDown}
+      title="Tarik untuk memindahkan tabel"
+    >
+      <FiMove className="w-4 h-4" />
+    </div>
+  );
+};
 
 const FullScreenPreview = ({ htmlContent, cssStyles, pageSize, marginTop, marginRight, marginBottom, marginLeft, onClose }) => {
   const iframeRef = useRef(null);
@@ -365,11 +533,11 @@ const TemplateEditorPage = () => {
       Placeholder.configure({
         placeholder: 'Tulis isi template di sini... (tekan / untuk melihat menu)',
       }),
-      Table.configure({ resizable: true }),
+      CustomTable.configure({ resizable: true }),
       TableRow,
-      TableHeader,
-      TableCell,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      CustomTableHeader,
+      CustomTableCell,
+      TextAlign.configure({ types: ['heading', 'paragraph', 'tableCell', 'tableHeader'] }),
       Image.configure({ inline: true, allowBase64: true }),
       TextStyle,
       Color,
@@ -516,23 +684,29 @@ const TemplateEditorPage = () => {
   const insertRankingTable = () => {
     if (!editor) return;
 
-    const dataTexts = ['{{#each ranking}}{{@index_1}}', '{{kelas_program}}', '{{semester}}', '{{peringkat_siswa}}', '{{tahun_pelajaran}}{{/each}}'];
+    const tableHtml = `
+      <table style="width: 100%; border-collapse: collapse;" border="1">
+        <tbody>
+          <tr>
+            <th><p>No</p></th>
+            <th><p>Kelas/Program</p></th>
+            <th><p>Semester</p></th>
+            <th><p>Peringkat/Siswa</p></th>
+            <th><p>Tahun Pelajaran</p></th>
+          </tr>
+          <tr>
+            <td><p>{{#each ranking}}{{@index_1}}</p></td>
+            <td><p>{{kelas_program}}</p></td>
+            <td><p>{{semester}}</p></td>
+            <td><p>{{peringkat_siswa}}</p></td>
+            <td><p>{{tahun_pelajaran}}{{/each}}</p></td>
+          </tr>
+        </tbody>
+      </table>
+      <p></p>
+    `;
 
-    editor.chain().focus().insertTable({ rows: 7, cols: 5, withHeaderRow: true }).run();
-    editor.commands.insertContent('No');
-    editor.commands.goToNextCell();
-    editor.commands.insertContent('Kelas/Program');
-    editor.commands.goToNextCell();
-    editor.commands.insertContent('Semester');
-    editor.commands.goToNextCell();
-    editor.commands.insertContent('Peringkat/Siswa');
-    editor.commands.goToNextCell();
-    editor.commands.insertContent('Tahun Pelajaran');
-    editor.commands.goToNextCell();
-    dataTexts.forEach((text) => {
-      editor.commands.insertContent(text);
-      editor.commands.goToNextCell();
-    });
+    editor.chain().focus().insertContent(tableHtml).run();
     toast.success('Tabel ranking berhasil ditambahkan!');
   };
 
@@ -610,6 +784,45 @@ const TemplateEditorPage = () => {
       editor.chain().focus().setTextAlign(align).run();
     };
 
+    const handleCenterTable = () => {
+      editor.chain().focus().command(({ tr, dispatch }) => {
+        let hasChanges = false;
+        const { selection } = tr;
+        const { $from } = selection;
+        
+        let tablePos = null;
+        let tableNode = null;
+        
+        for (let i = $from.depth; i > 0; i--) {
+          if ($from.node(i).type.name === 'table') {
+            tableNode = $from.node(i);
+            tablePos = $from.before(i);
+            break;
+          }
+        }
+        
+        if (selection instanceof NodeSelection && selection.node.type.name === 'table') {
+          tableNode = selection.node;
+          tablePos = selection.from;
+        }
+
+        if (tableNode && tablePos !== null && dispatch) {
+          tableNode.descendants((node, pos) => {
+            if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+              tr.setNodeMarkup(tablePos + 1 + pos, null, {
+                ...node.attrs,
+                textAlign: 'center',
+                verticalAlign: 'middle'
+              });
+              hasChanges = true;
+            }
+          });
+          if (hasChanges) dispatch(tr);
+        }
+        return hasChanges;
+      }).run();
+    };
+
     return (
       <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-100 border border-slate-200 rounded-t-xl border-b-0 sticky top-0 z-10 shadow-sm">
         <select onChange={e => e.target.value ? editor.chain().focus().setFontFamily(e.target.value).run() : editor.chain().focus().unsetFontFamily().run()}
@@ -652,8 +865,35 @@ const TemplateEditorPage = () => {
             <button type="button" onClick={() => editor.chain().focus().deleteColumn().run()} className="px-2 py-1 hover:bg-slate-300 rounded text-danger">Del Col</button>
             <button type="button" onClick={() => editor.chain().focus().deleteRow().run()} className="px-2 py-1 hover:bg-slate-300 rounded text-danger">Del Row</button>
             <span className="w-px h-5 bg-slate-300 mx-1 self-center"></span>
+            <button type="button" onClick={handleCenterTable} className="px-2 py-1 hover:bg-slate-300 rounded text-slate-700 flex items-center gap-1" title="Rata Tengah Seluruh Tabel">
+              <FiAlignCenter className="w-3 h-3" /> Align Center
+            </button>
+            <span className="w-px h-5 bg-slate-300 mx-1 self-center"></span>
             <span className="px-2 py-1 text-xs text-slate-400">Tabel aktif</span>
             <span className="w-px h-5 bg-slate-300 mx-1 self-center"></span>
+            <button type="button" onClick={() => {
+              editor.chain().command(({ tr, dispatch }) => {
+                let tablePos = null;
+                const { $from } = tr.selection;
+                for (let i = $from.depth; i > 0; i--) {
+                  if ($from.node(i).type.name === 'table') { tablePos = $from.before(i); break; }
+                }
+                if (tr.selection instanceof NodeSelection && tr.selection.node.type.name === 'table') {
+                  tablePos = tr.selection.from;
+                }
+                if (tablePos !== null && dispatch) {
+                  const node = tr.doc.nodeAt(tablePos);
+                  if (node.attrs.position === 'absolute') {
+                    tr.setNodeMarkup(tablePos, null, { ...node.attrs, position: 'relative', left: 0, top: 0 });
+                    dispatch(tr);
+                    return true;
+                  }
+                }
+                return false;
+              }).run();
+            }} className="px-2 py-1 hover:bg-slate-300 rounded text-slate-700" title="Kembalikan posisi tabel ke dalam teks (Normal Flow)">
+              Reset Posisi
+            </button>
             <button type="button" onClick={() => setShowDeleteTableConfirm(true)} className="px-2 py-1 hover:bg-red-200 rounded text-red-600 font-bold flex items-center gap-1" title="Hapus Tabel">
               <FiTrash2 className="w-3 h-3" /> Hapus Tabel
             </button>
@@ -796,12 +1036,15 @@ const TemplateEditorPage = () => {
               {[
                 { v: 'nama_guru', l: 'Nama' },
                 { v: 'nip', l: 'NIP' },
+                { v: 'nik', l: 'NIK' },
                 { v: 'jabatan', l: 'Jabatan' },
                 { v: 'pangkat', l: 'Pangkat/Gol' },
                 { v: 'mapel', l: 'Mapel' },
                 { v: 'nuptk', l: 'NUPTK' },
                 { v: 'status_pegawai', l: 'Status' },
                 { v: 'pendidikan', l: 'Pendidikan' },
+                { v: 'unit_kerja', l: 'Unit Kerja' },
+                { v: 'instansi', l: 'Instansi' },
                 { v: 'tempat_lahir', l: 'Tempat Lahir' },
                 { v: 'tanggal_lahir', l: 'Tgl Lahir' },
               ].map(({ v }) => (
@@ -840,13 +1083,19 @@ const TemplateEditorPage = () => {
 
         {/* EDITOR */}
         <div className="xl:col-span-3">
-          <div className="shadow-lg rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+          <div className="shadow-lg rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex flex-col relative" style={{ minHeight: '800px' }}>
             <MenuBar />
-            <div className="bg-slate-200 p-4 lg:p-8 overflow-y-auto overflow-x-auto flex justify-center">
-              <div className="shadow-2xl bg-white border border-slate-300" style={{ width: '800px', minHeight: '1131px' }}>
-                <div style={editorMarginStyle}>
-                  <EditorContent editor={editor} />
-                </div>
+            <div className="flex-1 overflow-y-auto bg-slate-200/50 p-6 flex justify-center custom-scrollbar" id="editor-container">
+              <div 
+                className="bg-white shadow-md relative transition-all"
+                style={{
+                  width: `${PAGE_SIZES[watchedPageSize]?.width || 210}mm`,
+                  minHeight: `${PAGE_SIZES[watchedPageSize]?.height || 297}mm`,
+                  ...editorMarginStyle
+                }}
+              >
+                <EditorContent editor={editor} />
+                <TableDragHandle editor={editor} />
               </div>
             </div>
           </div>

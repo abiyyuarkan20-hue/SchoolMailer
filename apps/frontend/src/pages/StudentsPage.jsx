@@ -40,6 +40,7 @@ const StudentsPage = () => {
   const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
   const [editId, setEditId] = useState(null);
+  const [rankingList, setRankingList] = useState([]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(studentSchema),
@@ -67,13 +68,39 @@ const StudentsPage = () => {
     const keys = new Set();
     students.forEach(student => {
       if (student.extraData) {
-        Object.keys(student.extraData).forEach(key => keys.add(key));
+        Object.keys(student.extraData).forEach(key => {
+          if (key !== 'ranking') keys.add(key);
+        });
       }
     });
     return Array.from(keys);
   }, [students]);
 
+  const addRankingRow = () => {
+    setRankingList([...rankingList, { kelas_program: '', semester: '', peringkat_siswa: '', tahun_pelajaran: '' }]);
+  };
+  
+  const updateRankingRow = (index, field, value) => {
+    const newList = [...rankingList];
+    newList[index][field] = value;
+    setRankingList(newList);
+  };
+  
+  const removeRankingRow = (index) => {
+    const newList = [...rankingList];
+    newList.splice(index, 1);
+    setRankingList(newList);
+  };
+
   const onSubmit = async (data) => {
+    // Attach ranking list to extraData
+    if (!data.extraData) data.extraData = {};
+    if (rankingList.length > 0) {
+      data.extraData.ranking = rankingList;
+    } else if (data.extraData.ranking) {
+      delete data.extraData.ranking;
+    }
+
     let success;
     if (editId) {
       success = await updateStudent(editId, data);
@@ -91,6 +118,7 @@ const StudentsPage = () => {
   const closeFormModal = () => {
     setIsAddModalOpen(false);
     setEditId(null);
+    setRankingList([]);
     reset({ nisn: '', name: '', grade: '', gender: 'MALE', parentName: '', parentPhone: '', address: '', email: '', extraData: {} });
   };
 
@@ -106,6 +134,7 @@ const StudentsPage = () => {
       email: student.email || '',
       extraData: student.extraData || {},
     });
+    setRankingList(Array.isArray(student.extraData?.ranking) ? student.extraData.ranking : []);
     setEditId(student.id);
     setIsAddModalOpen(true);
   };
@@ -192,7 +221,9 @@ const StudentsPage = () => {
     const extraKeys = new Set();
     students.forEach(student => {
       if (student.extraData) {
-        Object.keys(student.extraData).forEach(key => extraKeys.add(key));
+        Object.keys(student.extraData).forEach(key => {
+          if (key !== 'ranking') extraKeys.add(key);
+        });
       }
     });
 
@@ -279,65 +310,138 @@ const StudentsPage = () => {
         onPageChange={(newPage) => setPage(newPage)}
       />
 
-      <Modal isOpen={isAddModalOpen} onClose={closeFormModal} title={editId ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="NISN *" id="nisn" {...register('nisn')} error={errors.nisn?.message} />
-            <Input label="Nama Lengkap *" id="name" {...register('name')} error={errors.name?.message} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Kelas *" id="grade" {...register('grade')} error={errors.grade?.message} placeholder="cth: X-IPA-1" />
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Jenis Kelamin *</label>
-              <select
-                {...register('gender')}
-                className={`w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border outline-none px-3 py-2 bg-white ${errors.gender ? 'border-danger' : 'border-slate-300'}`}
-              >
-                <option value="MALE">Laki-laki (L)</option>
-                <option value="FEMALE">Perempuan (P)</option>
-              </select>
-              {errors.gender && <p className="mt-1 text-sm text-danger">{errors.gender.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Nama Orang Tua" id="parentName" {...register('parentName')} error={errors.parentName?.message} />
-            <Input label="No. HP Orang Tua" id="parentPhone" {...register('parentPhone')} error={errors.parentPhone?.message} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Email" id="email" type="email" {...register('email')} placeholder="siswa@contoh.com" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Alamat</label>
-            <textarea
-              {...register('address')}
-              className="w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border border-slate-300 px-3 py-2 outline-none"
-              rows={2}
-            />
-          </div>
-
-          {extraKeys.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-slate-200">
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Data Tambahan (Sesuai Excel)</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {extraKeys.map(key => (
-                  <Input 
-                    key={key}
-                    label={key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} 
-                    id={`extraData.${key}`} 
-                    {...register(`extraData.${key}`)} 
-                  />
-                ))}
+      <Modal isOpen={isAddModalOpen} onClose={closeFormModal} title={editId ? 'Edit Data Siswa' : 'Tambah Siswa Baru'} maxWidth="max-w-3xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[80vh]">
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto pr-2 pb-4 space-y-6 custom-scrollbar">
+            
+            {/* Informasi Utama */}
+            <section>
+              <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                Informasi Utama
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="NISN *" id="nisn" {...register('nisn')} error={errors.nisn?.message} placeholder="Masukkan NISN" />
+                <Input label="Nama Lengkap *" id="name" {...register('name')} error={errors.name?.message} placeholder="Masukkan nama lengkap siswa" />
+                <Input label="Kelas *" id="grade" {...register('grade')} error={errors.grade?.message} placeholder="cth: X-IPA-1" />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Jenis Kelamin *</label>
+                  <select
+                    {...register('gender')}
+                    className={`w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border outline-none px-3 py-2 bg-white transition-colors ${errors.gender ? 'border-danger focus:ring-danger' : 'border-slate-300'}`}
+                  >
+                    <option value="MALE">Laki-laki (L)</option>
+                    <option value="FEMALE">Perempuan (P)</option>
+                  </select>
+                  {errors.gender && <p className="mt-1 text-xs text-danger">{errors.gender.message}</p>}
+                </div>
               </div>
-            </div>
-          )}
+            </section>
 
-          <div className="pt-4 mt-2 flex justify-end gap-3 border-t border-slate-100">
-            <Button variant="ghost" onClick={closeFormModal} disabled={isLoading}>Batal</Button>
-            <Button type="submit" variant="primary" isLoading={isLoading}>Simpan</Button>
+            {/* Kontak & Alamat */}
+            <section>
+              <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                Kontak & Alamat
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="Nama Orang Tua" id="parentName" {...register('parentName')} error={errors.parentName?.message} placeholder="Nama wali/orang tua" />
+                <Input label="No. HP Orang Tua" id="parentPhone" {...register('parentPhone')} error={errors.parentPhone?.message} placeholder="08xxxxxxxxxx" />
+                <Input label="Email" id="email" type="email" {...register('email')} placeholder="siswa@contoh.com" />
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Alamat Lengkap</label>
+                  <textarea
+                    {...register('address')}
+                    className="w-full rounded-lg shadow-sm focus:ring-primary focus:border-primary sm:text-sm border border-slate-300 px-3 py-2 outline-none transition-colors"
+                    rows={2}
+                    placeholder="Masukkan alamat lengkap"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Data Prestasi / Ranking */}
+            <section>
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                <h4 className="text-sm font-bold text-slate-800">Data Prestasi / Ranking</h4>
+                <Button type="button" variant="secondary" size="sm" icon={FiPlus} onClick={addRankingRow} className="shadow-sm">
+                  Tambah Baris
+                </Button>
+              </div>
+              
+              {rankingList.length > 0 ? (
+                <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-sm">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Kelas/Program</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Semester</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Peringkat/Siswa</th>
+                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600">Thn Pelajaran</th>
+                        <th className="px-3 py-2.5 w-12 text-center text-xs font-semibold text-slate-600">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-100">
+                      {rankingList.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-2">
+                            <input type="text" className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" value={row.kelas_program} onChange={(e) => updateRankingRow(idx, 'kelas_program', e.target.value)} placeholder="X-1 IPA" />
+                          </td>
+                          <td className="p-2">
+                            <input type="text" className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" value={row.semester} onChange={(e) => updateRankingRow(idx, 'semester', e.target.value)} placeholder="1" />
+                          </td>
+                          <td className="p-2">
+                            <input type="text" className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" value={row.peringkat_siswa} onChange={(e) => updateRankingRow(idx, 'peringkat_siswa', e.target.value)} placeholder="1 / 36" />
+                          </td>
+                          <td className="p-2">
+                            <input type="text" className="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" value={row.tahun_pelajaran} onChange={(e) => updateRankingRow(idx, 'tahun_pelajaran', e.target.value)} placeholder="2023/2024" />
+                          </td>
+                          <td className="p-2 text-center align-middle">
+                            <button type="button" onClick={() => removeRankingRow(idx)} className="p-1.5 text-slate-400 hover:text-danger hover:bg-red-50 rounded-md transition-colors" title="Hapus Baris">
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-dashed border-slate-300 rounded-lg p-6 text-center">
+                  <p className="text-sm text-slate-500 mb-2">Belum ada data prestasi/ranking siswa ini.</p>
+                  <Button type="button" variant="ghost" size="sm" icon={FiPlus} onClick={addRankingRow}>
+                    Tambah Baris Pertama
+                  </Button>
+                </div>
+              )}
+            </section>
+
+            {/* Data Tambahan (Sesuai Excel) */}
+            {extraKeys.length > 0 && (
+              <section>
+                <h4 className="text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">
+                  Data Tambahan (Sesuai Excel)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                  {extraKeys.map(key => (
+                    <Input 
+                      key={key}
+                      label={key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} 
+                      id={`extraData.${key}`} 
+                      {...register(`extraData.${key}`)} 
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+          </div>
+
+          {/* Modal Footer / Actions */}
+          <div className="pt-4 mt-2 flex justify-end gap-3 border-t border-slate-100 bg-white">
+            <Button variant="ghost" type="button" onClick={closeFormModal} disabled={isLoading}>Batal</Button>
+            <Button type="submit" variant="primary" isLoading={isLoading}>
+              {editId ? 'Simpan Perubahan' : 'Simpan Siswa'}
+            </Button>
           </div>
         </form>
       </Modal>
