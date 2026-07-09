@@ -179,7 +179,27 @@ const StudentsPage = () => {
 
   const downloadTemplate = () => {
     const ws = xlsx.utils.json_to_sheet([
-      { nisn: '12345678', name: 'John Doe', grade: 'X-IPA-1', gender: 'Laki-laki', parentName: 'Jane Doe', parentPhone: '08123456789', address: 'Jl. Merdeka No.1', tempat_lahir: 'Medan', tanggal_lahir: '12 Agustus 2005' }
+      { 
+        nisn: '12345678', 
+        name: 'John Doe', 
+        grade: 'X-IPA-1', 
+        gender: 'Laki-laki', 
+        parentName: 'Jane Doe', 
+        parentPhone: '08123456789', 
+        email: 'johndoe@contoh.com',
+        address: 'Jl. Merdeka No.1', 
+        tempat_lahir: 'Medan', 
+        tanggal_lahir: '12 Agustus 2005',
+        asal_sekolah: 'SMP Negeri 1 Medan',
+        ranking_1_kelas_program: 'X-1 IPA',
+        ranking_1_semester: '1',
+        ranking_1_peringkat_siswa: '1/36',
+        ranking_1_tahun_pelajaran: '2023/2024',
+        ranking_2_kelas_program: 'X-1 IPA',
+        ranking_2_semester: '2',
+        ranking_2_peringkat_siswa: '3/36',
+        ranking_2_tahun_pelajaran: '2023/2024'
+      }
     ]);
     const wb = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(wb, ws, 'Template Siswa');

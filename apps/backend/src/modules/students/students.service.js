@@ -140,22 +140,45 @@ const processCsv = (buffer) => {
 };
 
 const normalizeKeys = (row) => {
-  const standardCleanKeys = ['nisn', 'name', 'nama', 'grade', 'kelas', 'classname', 'gender', 'jeniskelamin', 'jk', 'parentname', 'namaortu', 'namaorangtua', 'parentphone', 'nohportu', 'telportu', 'address', 'alamat'];
+  const standardCleanKeys = ['nisn', 'name', 'nama', 'grade', 'kelas', 'classname', 'gender', 'jeniskelamin', 'jk', 'parentname', 'namaortu', 'namaorangtua', 'parentphone', 'nohportu', 'telportu', 'email', 'surel', 'address', 'alamat'];
   
   const normalized = {};
   const extraData = {};
+  const rankingData = {};
   
   for (const key in row) {
-    const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-    normalized[cleanKey] = row[key];
+    const cleanKey = key.toLowerCase().replace(/[^a-z0-9_]/g, ''); // keep underscores
+    const alphaNumKey = cleanKey.replace(/_/g, '');
+    normalized[alphaNumKey] = row[key];
     
-    if (!standardCleanKeys.includes(cleanKey)) {
+    if (cleanKey.startsWith('ranking_')) {
+      // Parse format like ranking_1_kelas_program
+      const parts = cleanKey.split('_');
+      // Parts: ['ranking', '1', 'kelas', 'program']
+      const indexStr = parts[1];
+      const index = !isNaN(parseInt(indexStr)) ? parseInt(indexStr) : 1;
+      
+      if (!rankingData[index]) rankingData[index] = {};
+      
+      // Determine the field name
+      if (cleanKey.includes('kelas') || cleanKey.includes('program')) rankingData[index]['kelas_program'] = String(row[key]);
+      else if (cleanKey.includes('semester')) rankingData[index]['semester'] = String(row[key]);
+      else if (cleanKey.includes('peringkat')) rankingData[index]['peringkat_siswa'] = String(row[key]);
+      else if (cleanKey.includes('tahun')) rankingData[index]['tahun_pelajaran'] = String(row[key]);
+      
+    } else if (!standardCleanKeys.includes(alphaNumKey)) {
       // Format key: "Tempat Lahir" -> "tempat_lahir"
       const extraKey = key.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
       if (extraKey) {
         extraData[extraKey] = String(row[key]);
       }
     }
+  }
+  
+  // Convert rankingData object to array
+  const rankingArray = Object.values(rankingData).filter(row => Object.keys(row).length > 0);
+  if (rankingArray.length > 0) {
+    extraData.ranking = rankingArray;
   }
   
   const className = String(normalized['grade'] || normalized['kelas'] || normalized['classname'] || '').trim();
@@ -169,6 +192,7 @@ const normalizeKeys = (row) => {
 
   const pName = normalized['parentname'] || normalized['namaortu'] || normalized['namaorangtua'];
   const pPhone = normalized['parentphone'] || normalized['nohportu'] || normalized['telportu'];
+  const pEmail = normalized['email'] || normalized['surel'];
   const addr = normalized['address'] || normalized['alamat'];
 
   return {
@@ -179,6 +203,7 @@ const normalizeKeys = (row) => {
     gender: gender,
     parentName: pName != null ? String(pName) : null,
     parentPhone: pPhone != null ? String(pPhone) : null,
+    email: pEmail != null ? String(pEmail) : null,
     address: addr != null ? String(addr) : null,
     extraData: Object.keys(extraData).length > 0 ? extraData : null
   };
